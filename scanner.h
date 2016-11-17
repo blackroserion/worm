@@ -40,3 +40,10 @@ struct pseudo_header {
   unsigned char protocol;
   unsigned short tcp_length;
 };
+
+in_addr_t get_interface_address(const char *interface);
+char *strfind(const char *string, char character);
+unsigned short csum(unsigned short *data, unsigned int length);
+void range_scan(const char *range, unsigned int *first, unsigned int *last);
+void scan_port(const char *interface, const char *address, unsigned int port, unsigned char use_raw_socket, unsigned char verbose, struct scan_table **table);
+struct scan_table *scanner(const char *range, const char *ports, const char *interface, int use_raw_socket, int verbose);

@@ -7,4 +7,4 @@
 
 #define MAX_PASSWORD_LENGTH    8
 
-
+int bruteforce(char *dest, unsigned int maxlength);
