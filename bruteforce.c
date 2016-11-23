@@ -42,7 +42,9 @@ int bruteforce(char *dest, unsigned int maxlength) {
   strncpy(dest, guess, maxlength);
   return 1;
 }
-/*
+
+#ifdef BRUTEFORCE_MAIN
+
 int main(int argc, const char *argv[]) {
   char dest[MAX_PASSWORD_LENGTH];
 
@@ -53,4 +55,5 @@ int main(int argc, const char *argv[]) {
 
   return 0;
 }
-*/
+
+#endif

