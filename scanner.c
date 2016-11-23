@@ -290,7 +290,7 @@ struct scan_table *scanner(const char *range, const char *ports, const char *int
 
   return table;
 }
-
+/*
 int main(int argc, char *argv[]) {
   struct scan_table *table, *entry;
   char *interface = NULL;
@@ -346,3 +346,4 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+*/
