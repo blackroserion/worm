@@ -270,7 +270,7 @@ struct scan_table *scanner(const char *range, const char *ports, const char *int
     first_port = 0;
     last_port = 65535;
   } else {
-    range_scan(range, &first_port, &last_port);
+    range_scan(ports, &first_port, &last_port);
   }
 
   sscanf(range, "%u.%u.%u.%s", &addr[0], &addr[1], &addr[2], ip_range);
