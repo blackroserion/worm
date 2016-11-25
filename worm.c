@@ -38,7 +38,7 @@ int main(int argc, const char *argv[]) {
   if(target_table != NULL) {
     for(target = target_table; target != NULL; target = target->next) {
       if(strstr(target->banner, "FTP") != NULL) {
-        /* exploit */
+        remote_exploit(target->address, target->port, "ftp", "mozilla@");
 
         if((method = rand() % 1) == 0) {
           while(bruteforce(guess, sizeof guess) != 0) {
