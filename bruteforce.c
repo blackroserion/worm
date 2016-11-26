@@ -48,15 +48,11 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
   char answer[128];
   char request[32];
   struct sockaddr_in addr;
-  struct timeval recv_timeout;
   static int tries = 0;
   static int sock = 0;
   int length;
 
   if(sock == 0 || tries == 0) {
-    recv_timeout.tv_sec = 2;
-    recv_timeout.tv_usec = 0;
-
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(address);  
@@ -66,13 +62,7 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
       perror("ftp_try_login (socket)");
       return -1;
     }
-/*
-    if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof recv_timeout) == -1) {
-        perror("ftp_try_login (setsockopt)");
-        close(sock);
-        return 0;
-    }
-*/
+
     if(connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) < 0) {
       perror("fty_try_login (connect)");
       close(sock);
@@ -108,7 +98,6 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
   }
 
   length = snprintf(request, sizeof request, "PASS %s\n", password);
-  fprintf(stdout, "%s", request);
   if(send(sock, request, length, 0) < 0) {
     perror("fty_try_login (send)");
     return -1;
