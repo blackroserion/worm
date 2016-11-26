@@ -22,7 +22,7 @@
 #define CONNECT_TIMEOUT   800
 
 /* Recv timeout (seconds) */
-#define RECV_TIMEOUT      2
+#define RECV_TIMEOUT      4
 
 /* Scan table */
 struct scan_table {
