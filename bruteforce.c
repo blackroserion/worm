@@ -64,7 +64,7 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
     }
 
     if(connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) < 0) {
-      perror("fty_try_login (connect)");
+      perror("ftp_try_login (connect)");
       close(sock);
       return -1;
     }
@@ -87,7 +87,7 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
   while(strncmp(answer, "331", 3) != 0) {
     length = snprintf(request, sizeof request, "USER %s\n", user);
     if(send(sock, request, length, 0) < 0) {
-      perror("fty_try_login (send)");
+      perror("ftp_try_login (send)");
       return -1;
     }
 
@@ -99,7 +99,7 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
 
   length = snprintf(request, sizeof request, "PASS %s\n", password);
   if(send(sock, request, length, 0) < 0) {
-    perror("fty_try_login (send)");
+    perror("ftp_try_login (send)");
     return -1;
   }
 
