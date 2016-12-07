@@ -70,6 +70,16 @@ int spread(int fd, const char *worm, const char *dest) {
     return -1;
   }
 
+  if(recv(fd, answer, sizeof answer, 0) < 0) {
+    perror("recv");
+    return -1;
+  }
+
+  if(strncmp(answer, "150", 3) != 0) {
+    fprintf(stderr, "Error on STOR command!\n");
+    return -1;
+  }
+
   if((fp = fopen(worm, "rb")) == NULL) {
     fprintf(stderr, "Error: Opening file \"%s\" failed!\n", worm);
     return -1;
@@ -80,6 +90,16 @@ int spread(int fd, const char *worm, const char *dest) {
   }
 
   close(datafd);
+
+  if(recv(fd, answer, sizeof answer, 0) < 0) {
+    perror("recv");
+    return -1;
+  }
+
+  if(strncmp(answer, "226", 3) != 0) {
+    fprintf(stderr, "Warning: Transfer complete message not detected!\n");
+  }
+  
   fclose(fp);
   return 0;
 }
