@@ -181,8 +181,8 @@ void scan_port(const char *interface, const char *address, unsigned int port, un
 
     FD_ZERO(&fdset);
     FD_SET(sock, &fdset);
-    connect_timeout.tv_sec = 0;
-    connect_timeout.tv_usec = CONNECT_TIMEOUT;
+    connect_timeout.tv_sec = CONNECT_TIMEOUT;
+    connect_timeout.tv_usec = 0;
 
     connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 

@@ -19,7 +19,7 @@
 #define MAGIC_STRING      "HEAD / HTTP/1.1\n\n"
 
 /* Connect timeout (seconds) */
-#define CONNECT_TIMEOUT   800
+#define CONNECT_TIMEOUT   4
 
 /* Recv timeout (seconds) */
 #define RECV_TIMEOUT      4
