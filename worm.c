@@ -1,8 +1,7 @@
 /*
  * Worm - Simple mechanism for attack and replicate
  *
- * Copyright (C) 2016  Felix Yowtang Liu
- *                     Rafael Ravedutti Lucio Machado
+ * Copyright (C) 2016  Rafael Ravedutti Lucio Machado 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
